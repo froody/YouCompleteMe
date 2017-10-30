@@ -30,6 +30,7 @@ import logging
 import os
 import signal
 import vim
+import re
 from subprocess import PIPE
 from tempfile import NamedTemporaryFile
 from ycm import base, paths, vimsupport
@@ -128,7 +129,9 @@ class YouCompleteMe( object ):
     self._SetupServer()
     self._ycmd_keepalive.Start()
     self._complete_done_hooks = {
-      'cs': lambda self: self._OnCompleteDone_Csharp()
+      'cs': lambda self, arg: self._OnCompleteDone_Csharp(arg),
+      'objc': lambda self, arg: self._OnCompleteDone_Objc(arg),
+      'objcpp': lambda self, arg: self._OnCompleteDone_Objc(arg)
     }
 
 
@@ -423,10 +426,10 @@ class YouCompleteMe( object ):
     SendEventNotificationAsync( 'CurrentIdentifierFinished' )
 
 
-  def OnCompleteDone( self ):
+  def OnCompleteDone( self, item ):
     complete_done_actions = self.GetCompleteDoneHooks()
     for action in complete_done_actions:
-      action(self)
+      action(self, item)
 
 
   def GetCompleteDoneHooks( self ):
@@ -501,8 +504,21 @@ class YouCompleteMe( object ):
         return True
     return False
 
+  def _OnCompleteDone_Objc( self, item ):
+    last = self.GetCurrentCompletionRequest()
+    word = item.get('word', None)
 
-  def _OnCompleteDone_Csharp( self ):
+    if last:
+        response = last.RawResponse()
+        comp = response.get('completions', [])
+        for c in comp:
+            if c.get('insertion_text', "") == word:
+                extra = c.get('extra_data', {})
+                snip = extra.get('ulti_snip', "")
+                if snip:
+                    vim.command( 'call UltiSnips#Anon("' + re.escape(snip) + '", "")' )
+
+  def _OnCompleteDone_Csharp( self, item ):
     completions = self.GetCompletionsUserMayHaveCompleted()
     namespaces = [ self._GetRequiredNamespaceImport( c )
                    for c in completions ]

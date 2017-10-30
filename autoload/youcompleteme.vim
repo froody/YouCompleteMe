@@ -440,7 +440,8 @@ endfunction
 
 
 function! s:OnCompleteDone()
-  exec s:python_command "ycm_state.OnCompleteDone()"
+  exec s:python_command "ycm_state.OnCompleteDone(" .
+        \ "vim.eval( 'v:completed_item' ) )"
 endfunction
 
 
